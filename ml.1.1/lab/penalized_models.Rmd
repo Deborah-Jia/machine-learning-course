@@ -33,7 +33,7 @@ We are going to predict house sales prices in Ames, Iowa. See [here](https://cra
 ```{r}
 library(AmesHousing)
 housing_data <- make_ames()
-housing_data <- clean_names(housing_data)
+housing_data <- clean_names(housing_data) # fromjaniter，所有分隔符和大小写都被统一了
 housing_data <- housing_data %>% mutate(log_sale_price = log(sale_price))
 skim(housing_data)
 ```
@@ -49,7 +49,7 @@ ggplot(data = housing_data, aes(x = log_sale_price)) + geom_density()
 Let's see correlations of features and the outcome variable. Based on this,
 simple benchmark models can quickly be put together.
 ```{r, warning=FALSE, message=FALSE}
-ggcorr(housing_data)
+ggcorr(housing_data) # correlation plot, from GGally package
 ```
 
 ```{r, message=FALSE}
@@ -130,7 +130,7 @@ ridge_model <- glmnet(
   alpha = 0  # the ridge model
 )
 
-plot(ridge_model, xvar = "lambda")
+plot(ridge_model, xvar = "lambda") # 一条线是一个variable， penalty越多，shrinkage越多，越聚拢
 ```
 
 Look at some individual coefficients.
@@ -211,7 +211,7 @@ ridge_fit
 ```
 
 ```{r}
-ggplot(ridge_fit)
+ggplot(ridge_fit) 
 ```
 
 ## Another variant: LASSO regression

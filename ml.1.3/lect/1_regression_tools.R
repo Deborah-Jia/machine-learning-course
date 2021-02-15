@@ -97,17 +97,23 @@ postResample(bikeTest$count, predict(lmCaret, bikeTest))
 # Remember: Ridge, when alpha to 0. Lasso, when alpha to 1
 set.seed(123)
 trctrl <- trainControl(method = "cv")
-lmElasticNetCaret <- train(count~quarter+temp+atemp+weather+hour+holiday+workingday+windspeed, 
+bikeTrain$logcount = log(bikeTrain$count)
+lmElasticNetCaret <- train(
+                  logcount~quarter+temp+atemp+weather+hour+holiday+workingday+windspeed, 
                  data = bikeTrain, 
                  method = "glmnet",
                  trControl=trctrl,
-                 tuneLength=5
+                 tuneLength=10
                  #tuneGrid = data.frame(lambda=seq(0.1,1,0.1), alpha=rep(1, 10))
+                 # tuneGrid = data.frame(lambda=c(0.000001,0.00001,0.0001, 0.001,0.002,0.01,0.1), alpha= 1)
 )
+
+lmElasticNetCaret
+
 plot(lmElasticNetCaret)
 lmElasticNetCaret
 coef(lmElasticNetCaret$finalModel, lmElasticNetCaret$bestTune$lambda)
-
+# alpha = 0 in ridge
 postResample(bikeTest$count, predict(lmElasticNetCaret, bikeTest))
 
 # Remember: Interpret the scale and the sign of coefficients

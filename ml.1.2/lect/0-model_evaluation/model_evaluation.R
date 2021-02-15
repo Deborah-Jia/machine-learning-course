@@ -11,6 +11,7 @@ library(plyr)
 library(data.table)
 library(caret)
 library(party)
+library("partykit")
 
 
 GetBikeData <- function(filePath) {
@@ -23,7 +24,7 @@ GetBikeData <- function(filePath) {
   return(dt)
 }
 
-bikeTrain <- GetBikeData("data/bike_rental/bike_rental_train.csv")
+bikeTrain <- GetBikeData("~/Desktop/machine-learning-course/data/bike_rental/bike_rental_train.csv")
 bikeTrain
 
 
@@ -148,7 +149,7 @@ unique(bikeTrain$hour)
 unique(bikeTrain$temp)
 unique(bikeTrain$humidity)
 
-bikeTest <- GetBikeData("data/bike_rental/bike_rental_test.csv")
+bikeTest <- GetBikeData("~/Desktop/machine-learning-course/data/bike_rental/bike_rental_test.csv")
 
 RootMeanSquaredError(bikeTest$count, ModelByMean(bikeTrain, bikeTest))
 RootMeanSquaredError(bikeTest$count, ModelByQuarter(bikeTrain, bikeTest))

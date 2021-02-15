@@ -3,7 +3,7 @@
 # install.packages('ddply')
 # install.packages('data.table')
 # install.packages('caret')
-
+rm(list =ls())
 library(ggplot2)
 library(lubridate)
 library(plyr)
@@ -20,8 +20,8 @@ GetBikeData <- function(filePath) {
   return(dt)
 }
 
-bikeTrain <- GetBikeData("data/bike_rental/bike_rental_train.csv")
-bikeTrain
+bikeTrain <- GetBikeData("~/Desktop/machine-learning-course/data/bike_rental/bike_rental_train.csv")
+bikeTrain 
 
 
 ggplot(bikeTrain, aes(x=count)) + geom_histogram() 
