@@ -21,7 +21,8 @@ To test if the installation works, run these:
 
 ```{r, eval=FALSE}
 library(h2o)
-h2o.init(nthreads=-1)
+# h2o.init(nthreads=-1)
+h2o.init(jvm_custom_args=c("sys.ai.h2o.debug.allowJavaVersions", "14"))
 
 dx_train <- h2o.importFile("https://s3.amazonaws.com/benchm-ml--main/train-0.1m.csv")
 dx_test <- h2o.importFile("https://s3.amazonaws.com/benchm-ml--main/test.csv")

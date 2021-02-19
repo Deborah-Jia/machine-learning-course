@@ -51,15 +51,15 @@ ModelByMean <- function(train, test) {
 ModelByMean(bikeTrain, bikeTrain)
 RootMeanSquaredError(bikeTrain$count, ModelByMean(bikeTrain, bikeTrain))
 
-# Idea
+# Idea 进化版的分组和总结！
 bikeTrain[, .(count = mean(count)), by=.(quarter)]
 
-# Prediction
-bikeTrain[quarter == "Q1", prediction_model_by_quarter := 71.90552]
+# Prediction 进化版的重新命名，太酷了吧！
+bikeTrain[quarter == "Q1", prediction_model_by_quarter := 71.90552] #小眼睛跟 copy()一个道理
 bikeTrain[quarter == "Q2", prediction_model_by_quarter := 160.94075]
 bikeTrain[quarter == "Q3", prediction_model_by_quarter := 186.99487]
 bikeTrain[quarter == "Q4", prediction_model_by_quarter := 154.78713]
-RootMeanSquaredError(bikeTrain$count, bikeTrain$prediction_model_by_quarter)
+RootMeanSquaredError(bikeTrain$count, bikeTrain$prediction_model_by_quarter) # 比上次的小多了
 
 # Stages of the previous block: idea, model fit and model evaluation
 ModelByQuarter <- function(train, test) {
@@ -72,6 +72,7 @@ ModelByQuarter <- function(train, test) {
 
 RootMeanSquaredError(bikeTrain$count, ModelByQuarter(bikeTrain, bikeTrain))
 
+# 通过分组把变量之间的差距缩小，进而减小RMSE
 ModelByQuarterWorkingday <- function(train, test) {
   new_test = copy(test)
   for (q in unique(train$quarter)) {

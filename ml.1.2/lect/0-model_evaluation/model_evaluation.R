@@ -184,12 +184,12 @@ RootMeanSquaredError(bikeTest$count, predict(lmModel, bikeTest))
 #   - can you improve resulst by setting k values manually?
 set.seed(123)
 bikeTrain
-trctrl <- trainControl(method = "repeatedcv", number = 3, repeats = 1)
+trctrl <- trainControl(method = "repeatedcv", number = 3, repeats = 1) # change represts 3*3
 knnModel <- train(count~hour+temp+humidity, data = bikeTrain, method = "knn",
                  trControl=trctrl,
                  preProcess=c("center", "scale"),
-                 tuneLength=10
-                 # tuneGrid = data.frame(k=c(15, 17, 19, 21))
+                 tuneLength=10 # 10 K values
+                 # tuneGrid = data.frame(k=c(15, 17, 19, 21)) # customised K value
                  )
 knnModel
 RootMeanSquaredError(bikeTest$count, predict(knnModel, bikeTest))

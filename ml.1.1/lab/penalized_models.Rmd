@@ -33,7 +33,7 @@ We are going to predict house sales prices in Ames, Iowa. See [here](https://cra
 ```{r}
 library(AmesHousing)
 housing_data <- make_ames()
-housing_data <- clean_names(housing_data) # fromjaniter，所有分隔符和大小写都被统一了
+housing_data <- clean_names(housing_data) # from janiter，所有分隔符和大小写都被统一了
 housing_data <- housing_data %>% mutate(log_sale_price = log(sale_price))
 skim(housing_data)
 ```
@@ -42,6 +42,7 @@ Look at the outcome variable, the price of houses.
 ```{r}
 ggplot(data = housing_data, aes(x = sale_price)) + geom_density()
 ```
+
 ```{r}
 ggplot(data = housing_data, aes(x = log_sale_price)) + geom_density()
 ```
@@ -49,11 +50,13 @@ ggplot(data = housing_data, aes(x = log_sale_price)) + geom_density()
 Let's see correlations of features and the outcome variable. Based on this,
 simple benchmark models can quickly be put together.
 ```{r, warning=FALSE, message=FALSE}
-ggcorr(housing_data) # correlation plot, from GGally package
+ggcorr(housing_data) # correlation plot, from GGally package,懒人福音
+# 最后一行是我们的outcome varibale，颜色最深的是影响最深的因素
 ```
 
 ```{r, message=FALSE}
 ggpairs(housing_data, columns = c("log_sale_price", "gr_liv_area", "tot_rms_abv_grd", "garage_area"))
+# density 没有scale，只是给了一个整体分布情况
 ```
 
 ### A baseline model
@@ -65,7 +68,7 @@ lm(log_sale_price ~ gr_liv_area + tot_rms_abv_grd, data = housing_data) %>%
   kable_styling(full_width = F)
 ```
 
-Weird pattern: sales price decreases with the number of rooms? This is spurious and is caused by the high positive correlation between the feature variables. Univariate regressions have the intuitive signs:
+Weird pattern: sales price decreases with the number of rooms? This is spurious and is caused by the high positive correlation between the feature variables. Univariate regressions have the intuitive signs。尽管线性回归是unbiased，但还是有可能存在high variance，比如在factors存在很高的colinearity的情况下。不要以极高的代价换取unbiased或者low baise，代价可能是很高的variance。 lasso就是一种penalized model， 在存在多重共线性的情况下， 选择其中一个variable
 
 ```{r}
 lm(log_sale_price ~ gr_liv_area, data = housing_data) %>% 
@@ -88,7 +91,7 @@ Penalized methods offer a solution to these kinds of patterns.
 ```{r}
 set.seed(1234)
 training_ratio <- 0.7
-train_indices <- createDataPartition(
+train_indices <- createDataPartition( #只是一个设置过程，把数据分为大小两组了，还没train
   y = housing_data[["log_sale_price"]],
   times = 1,
   p = training_ratio,
@@ -102,11 +105,11 @@ fit_control <- trainControl(method = "cv", number = 10)
 
 ## Penalize large coefficients: the Ridge regression
 
-The ridge regression adds a penalty term to the sum of squared residuals: the sum of squares
-of the regression coefficients. This puts a cost on having large coefficients. Result: biased but lower variance model.
+The ridge regression adds a penalty term to the sum of squared residuals: the sum of squares of the regression coefficients. This puts a cost on having large coefficients. Result: biased but lower variance model. 把所有的feature都保留了，没有删减。it shrinks coefficients but it won't set coefficients as zero.
 
 ```{r}
 features <- setdiff(names(housing_data), c("sale_price", "log_sale_price"))
+# 除了因变量，其他的varibales都选一遍
 ```
 
 First we are going to directly work with the `glmnet` package to estimate 
@@ -114,30 +117,36 @@ penalized models. Then we look at how this can be implemented through `caret`.
 
 ```{r}
 # glmnet needs inputs as a matrix. model.matrix: handles factor variables
-# -1: we do not need the intercept as glment will automatically include it
+# and glmnet会把所有的facor变成dummy，比如一个level为3 的factor，会被变成三个dummy
+# -1: we do not need the intercept as glmnet will automatically include it
+# ~. choose all variables
 x_train <- model.matrix( ~ . -1, data_train[, features, with = FALSE])
 dim(x_train)
 
 # standardization of variables is automatically done by glmnet
 
 # how much penalty do we want to apply? select with CV
-lambda_grid <- 10^seq(2,-5,length=100)  
+lambda_grid <- 10^seq(2,-5,length=100)  # it's just a trial at first
 
 set.seed(1234)
 ridge_model <- glmnet(
   x = x_train, y = data_train[["log_sale_price"]], 
-  family = "gaussian", # for continuous response
+  family = "gaussian", # for continuous response: we are having regression here
   alpha = 0  # the ridge model
 )
 
-plot(ridge_model, xvar = "lambda") # 一条线是一个variable， penalty越多，shrinkage越多，越聚拢
+plot(ridge_model, xvar = "lambda") 
+# 一条线是一个coefficient对应的variable (变形后的dummy），penalty越多，shrinkage越多，越聚拢，直至为零
+# coefficients have been standardized so they can be compared: with more variables the coefficients have more influence on the outcome variable
+# 如果像0靠拢得越慢，说明这个variable更加有影响力
 ```
 
 Look at some individual coefficients.
 ```{r}
 # helper function to extract the coefficient sequence as a data.table
+# 直接垂直截断
 get_glmnet_coeff_sequence <- function(glmnet_model) {
-  coeff_sequence <- coef(glmnet_model) %>% tidy()
+  coeff_sequence <- coef(glmnet_model) %>% tidy() # 直接问coef是什么，这里的coef已经被转回原值了，而不是log值，所以不便于比较
   names(coeff_sequence) <- c("variable", "lambda_id", "value")
 
   lambdas <- tibble(
@@ -160,22 +169,25 @@ ggplot(
   aes(x = log(lambda), y = value)) +
     geom_line() +
   facet_wrap(~ variable, scales = "free_y", ncol = 1)
+# 这个变量与其他变量之间有共线性，整体上说变量在往0靠拢，但单个变量并不是一定单减的。
+# 在你增加penalty的时候，可能其中一个变量受到了惩罚，但另一个具有共线性的没有
+# penalty is for some of the coefficients, not all of them.
 ```
 
 We can use cross-validation to determine the optimal penalty term weight. Two lambda values marked on the plot: one with the minimal CV RMSE, the other is the simplest model (highest lambda) which contains the optimal lambda's error within one standard deviation. That is, it gives the simplest model that is still "good enough".
 
 ```{r}
 set.seed(1234)
-ridge_model_cv <- cv.glmnet(
+ridge_model_cv <- cv.glmnet( # find the best lambda
   x = x_train, y = data_train[["log_sale_price"]], 
   family = "gaussian",
   alpha = 0,
-  nfolds = 10
+  nfolds = 10 #一共会有100个lambda
 )
 
 best_lambda <- ridge_model_cv$lambda.min
 message(paste0("The optimally chosen penalty parameter: ", best_lambda))
-
+# 一个是高富帅，另一个是经济适用男（不完美但也够用）
 highest_good_enough_lambda <- ridge_model_cv$lambda.1se
 message(paste0("The highest good enough penalty parameter: ", highest_good_enough_lambda))
 ```
@@ -191,7 +203,7 @@ same folds.
 ```{r, message=FALSE, warning=FALSE}
 # ridge model
 ridge_tune_grid <- expand.grid(
-  "alpha" = c(0),
+  "alpha" = c(0), # ridge model
   "lambda" = seq(0.05, 0.5, by = 0.025)
 )
 
@@ -199,7 +211,7 @@ set.seed(857)
 ridge_fit <- train(
   log_sale_price ~ . -sale_price,
   data = data_train,
-  method = "glmnet",
+  method = "glmnet", # you can change within train() to choose lamda group you wanna see
   preProcess = c("center", "scale"),
   tuneGrid = ridge_tune_grid,
   trControl = fit_control
@@ -216,15 +228,15 @@ ggplot(ridge_fit)
 
 ## Another variant: LASSO regression
 
-While Ridge applies a constraint on the sum of squares of coefficients, LASSO does the same for the sum of the __absolute values__ of coefficients.
+While Ridge applies a constraint on the sum of squares of coefficients, LASSO does the same for the sum of the **absolute values** of coefficients. 
 
-This seemingly small difference has important sconsequences: some coefficients are set exactly to zero, others are only shrunk towards zero.
+This seemingly small difference has important consequences: some coefficients are set exactly to zero, others are only shrunk towards zero.
 ```{r}
 set.seed(1234)
 lasso_model <- glmnet(
   x = x_train, y = data_train[["log_sale_price"]], 
   family = "gaussian",
-  alpha = 1  # the lasso model
+  alpha = 1  # the lasso model; if 0 then ridge
 )
 
 plot(lasso_model, xvar = "lambda")
@@ -263,7 +275,8 @@ message(paste0("The highest good enough penalty parameter: ", highest_good_enoug
 ```
 
 ```{r}
-plot(lasso_model_cv)
+plot(lasso_model_cv) # this is log! so it's negative
+# numbers on the top is number of coefficients
 ```
 
 Fitting LASSO models with `caret` is similar to that of Ridge.
@@ -278,13 +291,14 @@ lasso_tune_grid <- expand.grid(
 set.seed(857)
 lasso_fit <- train(
   log_sale_price ~ . -sale_price,
-  data = data_train,
+  data = data_train, 
   method = "glmnet",
   preProcess = c("center", "scale"),
   tuneGrid = lasso_tune_grid,
   trControl = fit_control
 )
 ```
+
 ```{r}
 lasso_fit
 ```
@@ -296,17 +310,17 @@ ggplot(lasso_fit) + scale_x_log10()
 ### Variable selection - why is it happening?
 
 ![Source: Introduction to Statistical Learning](images/lasso-ridge-alt-form.png)
-The constraints are different: LASSO's has corners, Ridge's is smooth. Corners mean some coefficients being exactly zero.
+The constraints are different: LASSO's has corners, Ridge's is smooth. Corners mean some coefficients being exactly zero. 果然还是lasso有骨气
 
 ![Source: Introduction to Statistical Learning](images/islr_lasso_vs_ridge.png)
 
-## Combine Ridge and LASSO: Elastic net
+## Combine Ridge and LASSO: Elastic net 996 加 007 打工人的噩梦
 
-We can combine both types of penalties. LASSO is attractive since it performs principled variable selection. However, when having correlated features, typically only one of them - quite arbitrarily - is kept in the model. Ridge simultaneously shrinks coefficients of these towards zero. If we apply penalties of both the absolute values and the squares of the coefficients, both virtues are retained. This method is called Elastic net.
+We can combine both types of penalties. LASSO is attractive since it performs principled variable selection. However, when having correlated features, typically only one of them - quite **arbitrarily** - is kept in the model. Ridge simultaneously shrinks coefficients of these towards zero. If we apply penalties of both the absolute values and the squares of the coefficients, both virtues are retained. This method is called Elastic net.
 
 ```{r, message = FALSE, warning=FALSE}
 enet_tune_grid <- expand.grid(
-  "alpha" = seq(0, 1, by = 0.1),
+  "alpha" = seq(0, 1, by = 0.1), # now a tuning parmeter, how much more you want lasso/ridge
   "lambda" = union(lasso_tune_grid[["lambda"]], ridge_tune_grid[["lambda"]])
 )
 
@@ -327,6 +341,7 @@ enet_fit
 
 ```{r}
 ggplot(enet_fit) + scale_x_log10()
+# 不用管lambda到底设置为几
 ```
 
 ## Evaluate all models
